@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portal Seguro</title>
+
+<style>
+    body {
+        margin:0;
+        font-family:Segoe UI;
+        background:linear-gradient(135deg,#002244,#003366);
+        min-height:100vh;
+        display:flex;
+        justify-content:center;
+        align-items:center;
+        color:white;
+    }
+    .card {
+        width:350px;
+        background:rgba(255,255,255,0.12);
+        padding:35px;
+        border-radius:15px;
+        backdrop-filter:blur(10px);
+        box-shadow:0 0 25px rgba(0,0,0,0.4);
+        display:none;
+    }
+    .active { display:block; }
+
+    h2 { text-align:center; margin-bottom:20px; }
+
+    input {
+        width:100%;
+        padding:12px;
+        border:none;
+        margin:10px 0;
+        border-radius:8px;
+        background:#ffffffd5;
+    }
+    button {
+        width:100%;
+        padding:12px;
+        border:none;
+        background:#0099ff;
+        border-radius:8px;
+        color:white;
+        font-size:16px;
+        cursor:pointer;
+        margin-top:10px;
+    }
+    button:hover { background:#0082d6; }
+
+    a { color:white; font-weight:bold; cursor:pointer; display:block; margin-top:12px; text-align:center; }
+
+    /* Dashboard */
+    #dashboard {
+        width:90%;
+        max-width:500px;
+        background:white;
+        color:black;
+        padding:30px;
+        border-radius:12px;
+        display:none;
+    }
+    #dashboard h1 { margin-top:0; }
+    #logout {
+        background:#cc0000;
+        color:white;
+    }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login" class="card active">
+    <h2>Portal Seguro</h2>
+
+    <input id="loginEmail" type="text" placeholder="E-mail">
+    <input id="loginSenha" type="password" placeholder="Senha">
+
+    <button id="btnLogin">Entrar</button>
+    <a onclick="mostrarCadastro()">Criar conta</a>
+</div>
+
+<!-- CADASTRO -->
+<div id="cadastro" class="card">
+    <h2>Criar Conta</h2>
+
+    <input id="cadNome" type="text" placeholder="Nome completo">
+    <input id="cadEmail" type="text" placeholder="E-mail">
+    <input id="cadSenha" type="password" placeholder="Senha">
+
+    <button id="btnCadastrar">Cadastrar</button>
+    <a onclick="mostrarLogin()">Voltar ao login</a>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard">
+    <h1>Bem-vindo</h1>
+    <p id="dashNome"></p>
+    <p id="dashEmail"></p>
+
+    <button id="logout">Sair</button>
+</div>
+
+<script type="module">
+
+    /* ----------------------- IMPORTAR FIREBASE ----------------------- */
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getDatabase, ref, push, set, get, child } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+    /* ----------------------- CONFIG FIREBASE ----------------------- */
+    const firebaseConfig = {
+      apiKey: "AIzaSyAvKTfrPxjZhxIqX6Lntf6w2nlBNFLLyxU",
+      authDomain: "bancdata-57d3c.firebaseapp.com",
+      databaseURL: "https://bancdata-57d3c-default-rtdb.firebaseio.com",
+      projectId: "bancdata-57d3c",
+      storageBucket: "bancdata-57d3c.firebasestorage.app",
+      messagingSenderId: "251220839714",
+      appId: "1:251220839714:web:49711230f2aed46b41297b"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    /* ----------------------- TROCAR TELAS ----------------------- */
+
+    function mostrarLogin() {
+        document.getElementById("login").classList.add("active");
+        document.getElementById("cadastro").classList.remove("active");
+        document.getElementById("dashboard").style.display = "none";
+    }
+
+    function mostrarCadastro() {
+        document.getElementById("cadastro").classList.add("active");
+        document.getElementById("login").classList.remove("active");
+    }
+
+    function mostrarDashboard() {
+        document.getElementById("login").classList.remove("active");
+        document.getElementById("cadastro").classList.remove("active");
+        document.getElementById("dashboard").style.display = "block";
+    }
+
+    window.mostrarCadastro = mostrarCadastro;
+    window.mostrarLogin = mostrarLogin;
+
+    /* ----------------------- CADASTRO ----------------------- */
+
+    document.getElementById("btnCadastrar").addEventListener("click", () => {
+        let nome = cadNome.value;
+        let email = cadEmail.value;
+        let senha = cadSenha.value;
+
+        if (!nome || !email || !senha) {
+            alert("Preencha tudo!");
+            return;
+        }
+
+        const r = ref(db, "usuarios");
+        const novo = push(r);
+
+        set(novo, {
+            nome, email, senha,
+            criado: new Date().toISOString()
+        }).then(() => {
+            alert("Conta criada com sucesso!");
+            mostrarLogin();
+        });
+    });
+
+    /* ----------------------- LOGIN ----------------------- */
+
+    document.getElementById("btnLogin").addEventListener("click", async () => {
+        let email = loginEmail.value;
+        let senha = loginSenha.value;
+
+        const snap = await get(child(ref(db), "usuarios"));
+
+        if (snap.exists()) {
+            let lista = Object.values(snap.val());
+            let u = lista.find(x => x.email === email && x.senha === senha);
+
+            if (u) {
+                localStorage.setItem("usuario", JSON.stringify(u));
+                carregarDashboard();
+                return;
+            }
+        }
+
+        alert("E-mail ou senha incorretos!");
+    });
+
+    /* ----------------------- DASHBOARD ----------------------- */
+
+    function carregarDashboard() {
+        const u = JSON.parse(localStorage.getItem("usuario"));
+        if (!u) return;
+
+        dashNome.innerText = "Nome: " + u.nome;
+        dashEmail.innerText = "Email: " + u.email;
+
+        mostrarDashboard();
+    }
+
+    carregarDashboard();
+
+    /* ----------------------- LOGOUT ----------------------- */
+
+    document.getElementById("logout").addEventListener("click", () => {
+        localStorage.removeItem("usuario");
+        mostrarLogin();
+    });
+
+</script>
+
+</body>
+</html>
